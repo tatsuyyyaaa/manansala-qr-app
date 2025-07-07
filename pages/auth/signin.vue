@@ -13,7 +13,7 @@
                         Login 
                     </v-btn>
                     <div class="mx-3 my-3 d-flex align-center justify-center"> OR </div>
-                    <v-btn color="green" class="text-capatilized" rounded block > <v-icon left> mdi-google ></v-icon> Sign in With Google </v-btn>
+                    <v-btn color="green" @click = "signinWithGoogle()" class="text-capatilized" rounded block > <v-icon left> mdi-google ></v-icon> Sign in With Google </v-btn>
                 </v-form>
             </v-card-text>
         </v-card>
@@ -21,6 +21,12 @@
 </template> 
 <script>
 export default {
-    layout: "auth"
+    layout: "auth",
+    middleware: "guest",
+    methods: {
+        signinWithGoogle(){
+            this.$auth.loginWith('google')
+        }
+    }
 }
 </script>
