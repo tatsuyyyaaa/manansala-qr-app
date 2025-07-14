@@ -110,7 +110,7 @@ export default {
           to: '/inspire'
         },
         {
-          icon: 'mdi-chart-bubble',
+          icon: 'mdi-camera-account',
           title: 'Qr Scanner',
           to: '/qrscanner'
         }
