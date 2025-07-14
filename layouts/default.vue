@@ -50,7 +50,7 @@
       </v-btn>
       <v-toolbar-title>{{ title }}</v-toolbar-title>
       <v-spacer />
-      <v-btn @click = "$auth.logout()">Logout</v-btn>
+      <v-btn @click = "$auth.logout()" color="blue">Logout</v-btn>
       <v-btn
         icon
         @click.stop="rightDrawer = !rightDrawer"
@@ -108,6 +108,11 @@ export default {
           icon: 'mdi-chart-bubble',
           title: 'Inspire',
           to: '/inspire'
+        },
+        {
+          icon: 'mdi-chart-bubble',
+          title: 'Qr Scanner',
+          to: '/qrscanner'
         }
       ],
       miniVariant: false,
