@@ -1,4 +1,6 @@
-import Vue from "vue";
-import { Html5Qrcode } from "html5-qrcode";
+import Vue from 'vue'
 
-Vue.prototype.$html5Qrcode = Html5Qrcode;
+Vue.prototype.$getHtml5Qrcode = async () => {
+  const { Html5Qrcode } = await import('html5-qrcode')
+  return Html5Qrcode
+}

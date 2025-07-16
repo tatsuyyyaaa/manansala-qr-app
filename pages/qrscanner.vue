@@ -21,7 +21,7 @@
     <div
       v-show="isScanning"
       id="scanner"
-      style="width: 100%; height: 400px; border: 2px solid #000"
+      style="width: 100%; height: 400px; border: 2px solid #000; border-radius: 8px;"
     ></div>
   </v-container>
 </template>
@@ -43,14 +43,15 @@ export default {
     };
   },
   beforeDestroy() {
-    this.stopScanner();
+    this.stopScanner(); // For Vue 2
   },
   methods: {
     async startScanner() {
       this.loading = true;
 
       try {
-        const { Html5Qrcode } = await import("html5-qrcode");
+        // ✅ Use the plugin-based lazy import function
+        const Html5Qrcode = await this.$getHtml5Qrcode();
         this.html5QrCode = new Html5Qrcode("scanner");
 
         const config = {
@@ -66,8 +67,7 @@ export default {
             this.$emit("scanned", decodedText);
           },
           (errorMessage) => {
-            // Optionally log scan errors
-            console.log("QR scan error:", errorMessage);
+            console.warn("QR scan error:", errorMessage);
           }
         );
 
@@ -86,6 +86,7 @@ export default {
           .then(() => {
             this.html5QrCode.clear();
             this.isScanning = false;
+            this.html5QrCode = null;
           })
           .catch((err) => {
             console.error("Error stopping QR scanner:", err);
