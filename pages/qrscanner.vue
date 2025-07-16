@@ -1,6 +1,16 @@
 <template>
   <div>
-    <div id="scanner" style="width: 100%; height: 400px;"></div>
+    <div v-if="!isScanning">
+      <v-btn color="primary" @click="startScanner">
+        Start Scanner
+      </v-btn>
+    </div>
+
+    <div
+      v-show="isScanning"
+      id="scanner"
+      style="width: 100%; height: 400px;"
+    ></div>
   </div>
 </template>
 
@@ -21,44 +31,35 @@ export default {
       isScanning: false,
     };
   },
-  mounted() {
-    this.startScanner();
-  },
   beforeDestroy() {
     this.stopScanner();
   },
   methods: {
-    startScanner() {
+    async startScanner() {
+      this.isScanning = true;
       const config = {
         fps: 10,
         qrbox: this.qrbox,
       };
 
-      this.html5QrCode = new Html5Qrcode("scanner");
-
-      this.html5QrCode
-        .start(
+      try {
+        this.html5QrCode = new Html5Qrcode("scanner");
+        await this.html5QrCode.start(
           { facingMode: "environment" },
           config,
           (decodedText) => {
             console.log("Scanned result:", decodedText);
             this.$emit("scanned", decodedText);
-
-            // Optional: stop after successful scan
-            // this.stopScanner();
           },
           (errorMessage) => {
-            // Comment this out to reduce spam
-            // console.warn("QR scan error:", errorMessage);
+            // You can log error or ignore
           }
-        )
-        .then(() => {
-          this.isScanning = true;
-        })
-        .catch((err) => {
-          console.error("Failed to start QR scanner:", err);
-        });
+        );
+      } catch (err) {
+        console.error("Failed to start QR scanner:", err);
+      }
     },
+
     stopScanner() {
       if (this.html5QrCode && this.isScanning) {
         this.html5QrCode
