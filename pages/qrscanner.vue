@@ -1,22 +1,32 @@
 <template>
-  <div>
-    <div v-if="!isScanning">
-      <v-btn color="primary" @click="startScanner">
-        Start Scanner
-      </v-btn>
-    </div>
+  <v-container>
+    <!-- Button to start scanning -->
+    <v-btn
+      v-if="!isScanning && !loading"
+      color="primary"
+      @click="startScanner"
+    >
+      Start Scanner
+    </v-btn>
 
+    <!-- Loading indicator while scanner is initializing -->
+    <v-progress-circular
+      v-if="loading"
+      indeterminate
+      color="primary"
+      class="ma-4"
+    />
+
+    <!-- Scanner view once active -->
     <div
       v-show="isScanning"
       id="scanner"
-      style="width: 100%; height: 400px;"
+      style="width: 100%; height: 400px; border: 2px solid #000"
     ></div>
-  </div>
+  </v-container>
 </template>
 
 <script>
-import { Html5Qrcode } from "html5-qrcode";
-
 export default {
   name: "QrScanner",
   props: {
@@ -29,6 +39,7 @@ export default {
     return {
       html5QrCode: null,
       isScanning: false,
+      loading: false,
     };
   },
   beforeDestroy() {
@@ -36,14 +47,17 @@ export default {
   },
   methods: {
     async startScanner() {
-      this.isScanning = true;
-      const config = {
-        fps: 10,
-        qrbox: this.qrbox,
-      };
+      this.loading = true;
 
       try {
+        const { Html5Qrcode } = await import("html5-qrcode");
         this.html5QrCode = new Html5Qrcode("scanner");
+
+        const config = {
+          fps: 10,
+          qrbox: this.qrbox,
+        };
+
         await this.html5QrCode.start(
           { facingMode: "environment" },
           config,
@@ -52,11 +66,16 @@ export default {
             this.$emit("scanned", decodedText);
           },
           (errorMessage) => {
-            // You can log error or ignore
+            // Optionally log scan errors
+            console.log("QR scan error:", errorMessage);
           }
         );
+
+        this.isScanning = true;
       } catch (err) {
         console.error("Failed to start QR scanner:", err);
+      } finally {
+        this.loading = false;
       }
     },
 
@@ -76,9 +95,3 @@ export default {
   },
 };
 </script>
-
-<style scoped>
-#scanner {
-  border: 2px solid #000;
-}
-</style>
