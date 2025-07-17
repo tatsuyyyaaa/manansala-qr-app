@@ -1,32 +1,13 @@
 <template>
   <v-container>
-    <!-- Scanner Controls -->
-    <v-btn
-      v-if="!isScanning"
-      color="primary"
-      @click="startScanner"
-      :loading="loading"
-      block
-      large
-    >
-      <v-icon left>mdi-camera</v-icon>
-      Start Scanner
-    </v-btn>
-
-    <!-- Scanner View -->
-    <div
-      id="qr-reader"
-      v-show="isScanning"
-      style="width: 100%; min-height: 300px;"
-    ></div>
-
-    <!-- Status Messages -->
+    <div id="qr-reader" style="width: 100%;"></div>
     <v-alert
-      v-if="statusMessage"
-      :type="alertType"
+      v-if="scanResult"
+      type="success"
       class="mt-4"
+      dense
     >
-      {{ statusMessage }}
+      Scanned: {{ scanResult }}
     </v-alert>
   </v-container>
 </template>
@@ -36,96 +17,56 @@ export default {
   name: "QrScanner",
   data() {
     return {
-      html5QrCode: null,
-      isScanning: false,
-      loading: false,
-      statusMessage: '',
-      alertType: 'info'
+      html5QrcodeScanner: null,
+      scanResult: null
     };
   },
+  mounted() {
+    this.initScanner();
+  },
   beforeDestroy() {
-    this.stopScanner();
+    if (this.html5QrcodeScanner) {
+      this.html5QrcodeScanner.clear();
+    }
   },
   methods: {
-    async startScanner() {
-      this.loading = true;
-      this.statusMessage = 'Initializing scanner...';
-      this.alertType = 'info';
-
+    async initScanner() {
       try {
-        // Load the scanner library
-        const { Html5Qrcode } = await import('html5-qrcode');
+        // Dynamically load Html5Qrcode using your globally available function
+        const Html5Qrcode = await this.$getHtml5Qrcode();
         
-        // Initialize scanner - IMPORTANT: Use 'qr-reader' as the container ID
-        this.html5QrCode = new Html5Qrcode("qr-reader");
-        
-        // Configuration
-        const config = {
-          fps: 10,
-          qrbox: 250,
-          aspectRatio: 1.0,
-          disableFlip: false
-        };
-
-        // Start scanning
-        this.statusMessage = 'Accessing camera...';
-        await this.html5QrCode.start(
-          { facingMode: "environment" },
+        // Configure the scanner
+        const config = { fps: 10, qrbox: 250 };
+        this.html5QrcodeScanner = new Html5QrcodeScanner(
+          "qr-reader",
           config,
-          (decodedText) => {
-            this.handleScanSuccess(decodedText);
-          },
-          (errorMessage) => {
-            console.warn('Scan error:', errorMessage);
-          }
+          /* verbose= */ false
         );
 
-        this.isScanning = true;
-        this.statusMessage = 'Scanner ready - point camera at QR code';
-        this.alertType = 'success';
+        // Render the scanner
+        this.html5QrcodeScanner.render(
+          (decodedText) => {
+            this.scanResult = decodedText;
+            this.$emit('scanned', decodedText);
+            // Optionally stop after the first scan:
+            // this.html5QrcodeScanner.clear();
+          },
+          (errorMessage) => {
+            console.debug("Scan failed:", errorMessage);
+          }
+        );
       } catch (err) {
-        this.handleError(err);
-      } finally {
-        this.loading = false;
+        console.error('Error initializing scanner:', err);
+        this.$emit('error', err);
       }
-    },
-
-    handleScanSuccess(decodedText) {
-      console.log('Scan result:', decodedText);
-      this.statusMessage = `Scanned: ${decodedText}`;
-      this.alertType = 'success';
-      this.$emit('scanned', decodedText);
-      
-      // Optional: Stop after successful scan
-      // this.stopScanner();
-    },
-
-    handleError(err) {
-      console.error('Scanner error:', err);
-      this.alertType = 'error';
-      
-      if (err.name === 'NotAllowedError') {
-        this.statusMessage = 'Camera access denied. Please allow camera permissions in your browser settings.';
-      } else if (err.name === 'NotFoundError') {
-        this.statusMessage = 'No camera found on this device.';
-      } else {
-        this.statusMessage = `Scanner error: ${err.message || 'Unknown error'}`;
-      }
-    },
-
-    async stopScanner() {
-      if (this.html5QrCode && this.isScanning) {
-        try {
-          await this.html5QrCode.stop();
-        } catch (err) {
-          console.warn('Error stopping scanner:', err);
-        }
-      }
-      this.isScanning = false;
-      this.html5QrCode = null;
-      this.statusMessage = 'Scanner stopped';
-      this.alertType = 'info';
     }
   }
 };
 </script>
+
+<style scoped>
+#qr-reader {
+  margin: 1rem auto;
+  max-width: 500px;
+}
+</style>
