@@ -1,10 +1,11 @@
 <template>
-  <v-container class="scanner-wrapper">
+  <v-container class="scanner-container">
     <!-- Scanner Controls -->
     <v-btn
-      v-if="!isScanning && !loading"
+      v-if="!isScanning"
       color="primary"
       @click="startScanner"
+      :loading="loading"
       block
       large
     >
@@ -14,50 +15,45 @@
 
     <!-- Scanner View -->
     <div
-      id="qr-scanner"
+      id="qr-scanner-container"
+      ref="scannerContainer"
       v-show="isScanning"
       class="scanner-view"
     ></div>
 
+    <!-- Status Messages -->
+    <v-alert
+      v-if="statusMessage"
+      :type="statusType"
+      class="mt-4"
+    >
+      {{ statusMessage }}
+    </v-alert>
+
     <!-- Scan Results -->
     <v-card
-      v-if="lastResult"
+      v-if="scanResult"
       class="mt-4"
     >
       <v-card-title>Scan Result</v-card-title>
       <v-card-text>
-        <pre>{{ lastResult }}</pre>
+        <pre>{{ scanResult }}</pre>
       </v-card-text>
     </v-card>
-
-    <!-- Debug Info -->
-    <v-expansion-panels v-if="debug" class="mt-4">
-      <v-expansion-panel>
-        <v-expansion-panel-header>Debug Info</v-expansion-panel-header>
-        <v-expansion-panel-content>
-          <pre>{{ debugInfo }}</pre>
-        </v-expansion-panel-content>
-      </v-expansion-panel>
-    </v-expansion-panels>
   </v-container>
 </template>
 
 <script>
 export default {
   name: "QrScanner",
-  props: {
-    debug: {
-      type: Boolean,
-      default: false
-    }
-  },
   data() {
     return {
       html5QrCode: null,
       isScanning: false,
       loading: false,
-      lastResult: null,
-      debugInfo: null
+      scanResult: null,
+      statusMessage: '',
+      statusType: 'info'
     };
   },
   beforeDestroy() {
@@ -66,15 +62,16 @@ export default {
   methods: {
     async startScanner() {
       this.loading = true;
-      this.lastResult = null;
-      this.debugInfo = this.debug ? {} : null;
+      this.statusMessage = 'Initializing scanner...';
+      this.statusType = 'info';
+      this.scanResult = null;
 
       try {
         // 1. Load the scanner library
-        const Html5Qrcode = await this.loadScannerLibrary();
+        const Html5Qrcode = await this.loadLibrary();
         
-        // 2. Initialize scanner
-        this.html5QrCode = new Html5Qrcode("qr-scanner");
+        // 2. Create scanner instance
+        this.html5QrCode = new Html5Qrcode("qr-scanner-container");
         
         // 3. Configure scanner
         const config = {
@@ -85,6 +82,7 @@ export default {
         };
 
         // 4. Start scanning
+        this.statusMessage = 'Accessing camera...';
         await this.html5QrCode.start(
           { facingMode: "environment" },
           config,
@@ -93,35 +91,24 @@ export default {
         );
 
         this.isScanning = true;
-        if (this.debug) {
-          this.debugInfo.status = "Scanner started successfully";
-        }
+        this.statusMessage = 'Scanner ready - point at a QR code';
       } catch (err) {
-        console.error("Scanner error:", err);
-        if (this.debug) {
-          this.debugInfo.error = err;
-          this.debugInfo.errorDetails = {
-            name: err.name,
-            message: err.message,
-            stack: err.stack
-          };
-        }
-        alert(`Scanner error: ${err.message}`);
+        this.handleError(err);
       } finally {
         this.loading = false;
       }
     },
 
-    async loadScannerLibrary() {
+    async loadLibrary() {
       try {
-        // Method 1: Try plugin first
+        // Try plugin method first
         if (this.$getHtml5Qrcode) {
           const lib = await this.$getHtml5Qrcode();
           if (lib) return lib;
         }
         
-        // Method 2: Direct import fallback
-        const { Html5Qrcode } = await import("html5-qrcode");
+        // Fallback to direct import
+        const { Html5Qrcode } = await import('html5-qrcode');
         return Html5Qrcode;
       } catch (err) {
         throw new Error(`Failed to load scanner library: ${err.message}`);
@@ -129,18 +116,27 @@ export default {
     },
 
     onScanSuccess(decodedText) {
-      console.log("Scan result:", decodedText);
-      this.lastResult = decodedText;
-      this.$emit("scanned", decodedText);
-      
-      // Optional: Stop after successful scan
-      // this.stopScanner();
+      this.scanResult = decodedText;
+      this.statusMessage = 'QR code detected!';
+      this.statusType = 'success';
+      this.$emit('scanned', decodedText);
     },
 
     onScanError(errorMessage) {
-      console.warn("Scan error:", errorMessage);
-      if (this.debug) {
-        this.debugInfo.lastError = errorMessage;
+      // Continue scanning despite errors
+      console.warn('Scan error:', errorMessage);
+    },
+
+    handleError(err) {
+      console.error('Scanner error:', err);
+      this.statusType = 'error';
+      
+      if (err.name === 'NotAllowedError') {
+        this.statusMessage = 'Camera access denied. Please allow camera permissions.';
+      } else if (err.name === 'NotFoundError') {
+        this.statusMessage = 'No camera found on this device.';
+      } else {
+        this.statusMessage = `Scanner error: ${err.message || 'Unknown error'}`;
       }
     },
 
@@ -150,20 +146,23 @@ export default {
           await this.html5QrCode.stop();
           this.html5QrCode.clear();
         } catch (err) {
-          console.warn("Error stopping scanner:", err);
+          console.warn('Error stopping scanner:', err);
         }
       }
       this.isScanning = false;
       this.html5QrCode = null;
+      this.statusMessage = 'Scanner stopped';
+      this.statusType = 'info';
     }
   }
 };
 </script>
 
 <style scoped>
-.scanner-wrapper {
+.scanner-container {
   max-width: 600px;
   margin: 0 auto;
+  padding: 16px;
 }
 
 .scanner-view {
@@ -173,23 +172,10 @@ export default {
   border-radius: 8px;
   overflow: hidden;
   position: relative;
-  background-color: #f5f5f5;
-}
-
-.scanner-view::before {
-  content: "QR Scanner Active";
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  color: #999;
-  font-size: 1.2rem;
-  z-index: 0;
+  background-color: #000; /* Black background for better contrast */
 }
 
 .scanner-view video {
-  position: relative;
-  z-index: 1;
   width: 100%;
   height: 100%;
   object-fit: cover;
