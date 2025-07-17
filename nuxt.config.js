@@ -1,16 +1,22 @@
 import colors from 'vuetify/es5/util/colors'
 
 export default {
-  // Disable server-side rendering: https://go.nuxtjs.dev/ssr-mode
   ssr: false,
 
-  // Global page headers: https://go.nuxtjs.dev/config-head
+  server: {
+    host: process.env.NODE_ENV === 'production' ? '0' : 'localhost',
+    port: process.env.PORT || 3000
+  },
+  
+  publicRuntimeConfig: {
+    baseURL: process.env.BASE_URL || 'https://manansala-qr-app.vercel.app',
+    googleRedirectUri: process.env.GOOGLE_REDIRECT_URI
+  },
+
   head: {
     titleTemplate: '%s - mm-qr-app',
     title: 'mm-qr-app',
-    htmlAttrs: {
-      lang: 'en'
-    },
+    htmlAttrs: { lang: 'en' },
     meta: [
       { charset: 'utf-8' },
       { name: 'viewport', content: 'width=device-width, initial-scale=1' },
@@ -22,35 +28,35 @@ export default {
     ]
   },
 
-  // Global CSS: https://go.nuxtjs.dev/config-css
-  css: [
-  ],
+  css: [],
 
-  // Plugins to run before rendering page: https://go.nuxtjs.dev/config-plugins
   plugins: [
     { src: '~/plugins/html5-qrcode.client.js', mode: 'client' }
   ],
 
-  // Auto import components: https://go.nuxtjs.dev/config-components
   components: true,
 
-  // Modules for dev and build (recommended): https://go.nuxtjs.dev/config-modules
   buildModules: [
-    // https://go.nuxtjs.dev/vuetify
     '@nuxtjs/vuetify',
   ],
 
-  // Modules: https://go.nuxtjs.dev/config-modules
   modules: [
     '@nuxtjs/axios',
     '@nuxtjs/auth-next'
   ],
+  
   auth: {
     redirect: {
       login: '/auth/signin',
       logout: '/auth/signin',
       callback: '/auth/callback',
       home: '/',
+    },
+    cookie: {
+      options: {
+        secure: true,
+        domain: '.vercel.app'
+      }
     },
     autoFetchUser: false,
     strategies: {
@@ -62,20 +68,18 @@ export default {
           authorization: "https://accounts.google.com/o/oauth2/auth",
           userInfo: "https://www.googleapis.com/oauth2/v3/userinfo",
         },
-        token:{
+        token: {
           property: "access_token",
           type: "Bearer",
           maxAge: 1800,
         },
         responseType: "token id_token",
-        scope: ["openid" , "profile" , "email"],
-        redirectUri: "http://localhost:3000/auth/callback",
+        scope: ["openid", "profile", "email"],
         codeChallengeMethod: "",
       },
     }
   },
 
-  // Vuetify module configuration: https://go.nuxtjs.dev/config-vuetify
   vuetify: {
     customVariables: ['~/assets/variables.scss'],
     theme: {
@@ -94,7 +98,5 @@ export default {
     }
   },
 
-  // Build Configuration: https://go.nuxtjs.dev/config-build
-  build: {
-  }
+  build: {}
 }
