@@ -1,5 +1,5 @@
 <template>
-  <v-container class="scanner-container">
+  <v-container>
     <!-- Scanner Controls -->
     <v-btn
       v-if="!isScanning"
@@ -15,31 +15,19 @@
 
     <!-- Scanner View -->
     <div
-      id="qr-scanner-container"
-      ref="scannerContainer"
+      id="qr-reader"
       v-show="isScanning"
-      class="scanner-view"
+      style="width: 100%; min-height: 300px;"
     ></div>
 
     <!-- Status Messages -->
     <v-alert
       v-if="statusMessage"
-      :type="statusType"
+      :type="alertType"
       class="mt-4"
     >
       {{ statusMessage }}
     </v-alert>
-
-    <!-- Scan Results -->
-    <v-card
-      v-if="scanResult"
-      class="mt-4"
-    >
-      <v-card-title>Scan Result</v-card-title>
-      <v-card-text>
-        <pre>{{ scanResult }}</pre>
-      </v-card-text>
-    </v-card>
   </v-container>
 </template>
 
@@ -51,9 +39,8 @@ export default {
       html5QrCode: null,
       isScanning: false,
       loading: false,
-      scanResult: null,
       statusMessage: '',
-      statusType: 'info'
+      alertType: 'info'
     };
   },
   beforeDestroy() {
@@ -63,17 +50,16 @@ export default {
     async startScanner() {
       this.loading = true;
       this.statusMessage = 'Initializing scanner...';
-      this.statusType = 'info';
-      this.scanResult = null;
+      this.alertType = 'info';
 
       try {
-        // 1. Load the scanner library
-        const Html5Qrcode = await this.loadLibrary();
+        // Load the scanner library
+        const { Html5Qrcode } = await import('html5-qrcode');
         
-        // 2. Create scanner instance
-        this.html5QrCode = new Html5Qrcode("qr-scanner-container");
+        // Initialize scanner - IMPORTANT: Use 'qr-reader' as the container ID
+        this.html5QrCode = new Html5Qrcode("qr-reader");
         
-        // 3. Configure scanner
+        // Configuration
         const config = {
           fps: 10,
           qrbox: 250,
@@ -81,17 +67,22 @@ export default {
           disableFlip: false
         };
 
-        // 4. Start scanning
+        // Start scanning
         this.statusMessage = 'Accessing camera...';
         await this.html5QrCode.start(
           { facingMode: "environment" },
           config,
-          this.onScanSuccess,
-          this.onScanError
+          (decodedText) => {
+            this.handleScanSuccess(decodedText);
+          },
+          (errorMessage) => {
+            console.warn('Scan error:', errorMessage);
+          }
         );
 
         this.isScanning = true;
-        this.statusMessage = 'Scanner ready - point at a QR code';
+        this.statusMessage = 'Scanner ready - point camera at QR code';
+        this.alertType = 'success';
       } catch (err) {
         this.handleError(err);
       } finally {
@@ -99,40 +90,22 @@ export default {
       }
     },
 
-    async loadLibrary() {
-      try {
-        // Try plugin method first
-        if (this.$getHtml5Qrcode) {
-          const lib = await this.$getHtml5Qrcode();
-          if (lib) return lib;
-        }
-        
-        // Fallback to direct import
-        const { Html5Qrcode } = await import('html5-qrcode');
-        return Html5Qrcode;
-      } catch (err) {
-        throw new Error(`Failed to load scanner library: ${err.message}`);
-      }
-    },
-
-    onScanSuccess(decodedText) {
-      this.scanResult = decodedText;
-      this.statusMessage = 'QR code detected!';
-      this.statusType = 'success';
+    handleScanSuccess(decodedText) {
+      console.log('Scan result:', decodedText);
+      this.statusMessage = `Scanned: ${decodedText}`;
+      this.alertType = 'success';
       this.$emit('scanned', decodedText);
-    },
-
-    onScanError(errorMessage) {
-      // Continue scanning despite errors
-      console.warn('Scan error:', errorMessage);
+      
+      // Optional: Stop after successful scan
+      // this.stopScanner();
     },
 
     handleError(err) {
       console.error('Scanner error:', err);
-      this.statusType = 'error';
+      this.alertType = 'error';
       
       if (err.name === 'NotAllowedError') {
-        this.statusMessage = 'Camera access denied. Please allow camera permissions.';
+        this.statusMessage = 'Camera access denied. Please allow camera permissions in your browser settings.';
       } else if (err.name === 'NotFoundError') {
         this.statusMessage = 'No camera found on this device.';
       } else {
@@ -144,7 +117,6 @@ export default {
       if (this.html5QrCode && this.isScanning) {
         try {
           await this.html5QrCode.stop();
-          this.html5QrCode.clear();
         } catch (err) {
           console.warn('Error stopping scanner:', err);
         }
@@ -152,32 +124,8 @@ export default {
       this.isScanning = false;
       this.html5QrCode = null;
       this.statusMessage = 'Scanner stopped';
-      this.statusType = 'info';
+      this.alertType = 'info';
     }
   }
 };
 </script>
-
-<style scoped>
-.scanner-container {
-  max-width: 600px;
-  margin: 0 auto;
-  padding: 16px;
-}
-
-.scanner-view {
-  width: 100%;
-  height: 400px;
-  border: 2px solid #1976d2;
-  border-radius: 8px;
-  overflow: hidden;
-  position: relative;
-  background-color: #000; /* Black background for better contrast */
-}
-
-.scanner-view video {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-</style>
